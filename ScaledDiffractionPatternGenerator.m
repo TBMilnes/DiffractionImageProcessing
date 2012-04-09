@@ -11,12 +11,13 @@ function [coefficients] = ScaledDiffractionPatternGenerator(apPixWidth,apPixHeig
 aperturePlateResolution = [768,1024];
 aperturePixelPitch = 26*10^-6;
 sensorPixelPitch = 8.3*10^-6;
-lambda = 500e-9;
+lambda = 525e-9; %Green
 f = 310*10^-3;
-W = apPixWidth*aperturePixelPitch; %Width of aperture
+paddingMultiple = 3;
+%W = apPixWidth*aperturePixelPitch; %Width of aperture image
+W = aperturePlateResolution(2)*paddingMultiple*aperturePixelPitch;
 
 % Generate aperture matrix
-paddingMultiple = 3;
 A=zeros(paddingMultiple*aperturePlateResolution);
 [M,N] = size(A);
 apSize = size(A);
@@ -41,14 +42,24 @@ centralProfile = I(aperturePlateResolution(1)*paddingMultiple/2+1,:);
 %figure; plot(x,centralProfile)
 
 % Calculate minima and truncate profile
-numLobes = 1; %2 == central lobe and first ring
+numLobes = 2; %2 == central lobe and first ring
 minima = [false, (centralProfile(2:end-1)<centralProfile(3:end))...
     & (centralProfile(2:end-1)<centralProfile(1:end-2)), false];
 %hold on; plot(x,minima*max(centralProfile)/10,'r')
 minimaIndices = find(minima==1);
 centralProfile = centralProfile(minimaIndices(sum(minima)/2-numLobes+1):...
     minimaIndices(sum(minima)/2+numLobes));
-%figure; plot(centralProfile); axis tight
+
+% Calculate centered xCoords for truncated profile
+profileWidth = x(minimaIndices(sum(minima)/2+numLobes)) - ...
+    x(minimaIndices(sum(minima)/2-numLobes+1));
+centralProfileXCoords = linspace(-profileWidth/2,profileWidth/2,length(centralProfile));
+%figure; plot(centralProfileXCoords,centralProfile); axis tight
+
+% 
+% centralProfileXCoords(end)-centralProfileXCoords(1)
+% centralProfileXCoords = x(minimaIndices(sum(minima)/2-numLobes+1):...
+%     minimaIndices(sum(minima)/2+numLobes));
 
 % Sanity check
 if max(centralProfile) ~= max(max(I))
@@ -56,14 +67,14 @@ if max(centralProfile) ~= max(max(I))
 end
 
 % Calculate number of coefficients for fitting
-numCoefficients = floor((length(centralProfile)-1)/3*aperturePixelPitch/sensorPixelPitch);
+numCoefficients = floor(profileWidth/sensorPixelPitch);
 if (floor(numCoefficients/2) == numCoefficients/2) %We want an odd number
     numCoefficients = numCoefficients + 1;
 end
 
 % Calculate coefficient values
-profileWidth = (length(centralProfile)-1)/3*aperturePixelPitch;
-centralProfileXCoords = linspace(-profileWidth/2,profileWidth/2,length(centralProfile));
+%profileWidth = (length(centralProfile)-1)/paddingMultiple*aperturePixelPitch;
+%centralProfileXCoords = linspace(-profileWidth/2,profileWidth/2,length(centralProfile));
 coefficientWidth = numCoefficients*sensorPixelPitch;
 coefficientCenters = linspace(-(coefficientWidth-sensorPixelPitch)/2,...
     (coefficientWidth-sensorPixelPitch)/2,numCoefficients);
